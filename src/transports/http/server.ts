@@ -3,7 +3,8 @@ import { IncomingMessage, ServerResponse, createServer, Server as HttpServer } f
 import { AbstractTransport } from '../base.js';
 import { JSONRPCMessage, isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
-import { HttpStreamTransportConfig } from './types.js';
+import { DEFAULT_HTTP_STREAM_CONFIG, DEFAULT_CORS_CONFIG, HttpStreamTransportConfig, CORSConfig } from './types.js';
+import { getRequestHeader, setResponseHeaders } from "../../utils/headers.js";
 import { logger } from '../../core/Logger.js';
 
 export class HttpStreamTransport extends AbstractTransport {
@@ -13,6 +14,7 @@ export class HttpStreamTransport extends AbstractTransport {
   private _server?: HttpServer;
   private _endpoint: string;
   private _enableJsonResponse: boolean = false;
+  private _config: HttpStreamTransportConfig
 
   private _transports: { [sessionId: string]: StreamableHTTPServerTransport } = {};
 
@@ -22,6 +24,10 @@ export class HttpStreamTransport extends AbstractTransport {
     this._port = config.port || 8080;
     this._endpoint = config.endpoint || '/mcp';
     this._enableJsonResponse = config.responseMode === 'batch';
+    this._config = {
+      ...DEFAULT_HTTP_STREAM_CONFIG,
+      ...config
+    }
 
     logger.debug(
       `HttpStreamTransport configured with: ${JSON.stringify({
@@ -34,6 +40,30 @@ export class HttpStreamTransport extends AbstractTransport {
         cors: config.cors ? true : false,
       })}`
     );
+  }
+
+  private getCorsHeaders(includeMaxAge: boolean = false): Record<string, string> {
+    const corsConfig = {
+      allowOrigin: DEFAULT_CORS_CONFIG.allowOrigin,
+      allowMethods: DEFAULT_CORS_CONFIG.allowMethods,
+      allowHeaders: DEFAULT_CORS_CONFIG.allowHeaders,
+      exposeHeaders: DEFAULT_CORS_CONFIG.exposeHeaders,
+      maxAge: DEFAULT_CORS_CONFIG.maxAge,
+      ...this._config.cors
+    } as Required<CORSConfig>
+
+    const headers: Record<string, string> = {
+      "Access-Control-Allow-Origin": corsConfig.allowOrigin,
+      "Access-Control-Allow-Methods": corsConfig.allowMethods,
+      "Access-Control-Allow-Headers": corsConfig.allowHeaders,
+      "Access-Control-Expose-Headers": corsConfig.exposeHeaders
+    }
+
+    if (includeMaxAge) {
+      headers["Access-Control-Max-Age"] = corsConfig.maxAge
+    }
+
+    return headers
   }
 
   async start(): Promise<void> {
@@ -82,6 +112,14 @@ export class HttpStreamTransport extends AbstractTransport {
   }
 
   private async handleMcpRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
+
+    if (req.method === "OPTIONS") {
+      setResponseHeaders(res, this.getCorsHeaders(true))
+      res.writeHead(204).end()
+      return
+    }
+
+    setResponseHeaders(res, this.getCorsHeaders())
     const sessionId = req.headers['mcp-session-id'] as string | undefined;
     let transport: StreamableHTTPServerTransport;
 

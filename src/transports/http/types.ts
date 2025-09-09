@@ -12,6 +12,42 @@ export { JSONRPCRequest, JSONRPCResponse, JSONRPCMessage, RequestId };
  */
 export type ResponseMode = 'stream' | 'batch';
 
+
+/**
+ * CORS configuration options for SSE transport
+ */
+export interface CORSConfig {
+  /**
+   * Access-Control-Allow-Origin header
+   * @default "*"
+   */
+  allowOrigin?: string;
+
+  /**
+   * Access-Control-Allow-Methods header
+   * @default "GET, POST, OPTIONS"
+   */
+  allowMethods?: string;
+
+  /**
+   * Access-Control-Allow-Headers header
+   * @default "Content-Type, Authorization, x-api-key"
+   */
+  allowHeaders?: string;
+
+  /**
+   * Access-Control-Expose-Headers header
+   * @default "Content-Type, Authorization, x-api-key"
+   */
+  exposeHeaders?: string;
+
+  /**
+   * Access-Control-Max-Age header for preflight requests
+   * @default "86400"
+   */
+  maxAge?: string;
+}
+
 /**
  * Session configuration for HTTP Stream transport
  */
@@ -109,4 +145,15 @@ export const DEFAULT_HTTP_STREAM_CONFIG: HttpStreamTransportConfig = {
   batchTimeout: 30000,
   maxMessageSize: 4 * 1024 * 1024,
   session: DEFAULT_SESSION_CONFIG,
+};
+
+/**
+ * Default CORS configuration
+ */
+export const DEFAULT_CORS_CONFIG: CORSConfig = {
+  allowOrigin: "*",
+  allowMethods: "GET, POST, DELETE, OPTIONS",
+  allowHeaders: "Content-Type, Accept, Authorization, x-api-key, Mcp-Session-Id, Last-Event-ID",
+  exposeHeaders: "Content-Type, Authorization, x-api-key, Mcp-Session-Id",
+  maxAge: "86400"
 };
