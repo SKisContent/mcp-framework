@@ -112,9 +112,8 @@ export class HttpStreamTransport extends AbstractTransport {
   }
 
   private async handleMcpRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
-
     if (req.method === "OPTIONS") {
-      setResponseHeaders(res, this.getCorsHeaders(true))
+      setResponseHeaders(res, this.getCorsHeaders(true)) // set CORS headers with max-age for preflight
       res.writeHead(204).end()
       return
     }
