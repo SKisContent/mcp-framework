@@ -24,8 +24,6 @@ jobs:
           config-file: '.release-please-config.json'
 
   upload-dist:
-    needs: release-please
-    # if: ${{ needs.release-please.outputs.release_created == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -40,13 +38,25 @@ jobs:
       - name: Zip dist folder
         run: zip -r dist.zip dist/
 
+      # Get latest release upload_url
+      - name: Get latest release upload_url
+        id: get_release
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: latestRelease } = await github.rest.repos.getLatestRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+            core.setOutput('upload_url', latestRelease.upload_url);
+
       # Upload dist/ as a release asset
       - name: Upload dist to GitHub Release
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ needs.release-please.outputs.upload_url }}
+          upload_url: ${{ steps.get_release.outputs.upload_url }}
           asset_path: dist.zip
           asset_name: dist.zip
           asset_content_type: application/zip
