@@ -34,9 +34,10 @@ jobs:
           npm ci
           npm run build
 
-      # Zip the dist folder before uploading
-      - name: Zip dist folder
-        run: zip -r dist.zip dist/
+      # Zip everything except src, test, and .git* files
+      - name: Zip Node package (excluding src)
+        run: |
+          zip -r dist.zip . -x "src/*" "test/*" ".git*" ".github/*" "node_modules/*"
 
       # Get latest release upload_url
       - name: Get latest release upload_url
@@ -50,7 +51,7 @@ jobs:
             });
             core.setOutput('upload_url', latestRelease.upload_url);
 
-      # Upload dist/ as a release asset
+      # Upload dist.zip as a release asset
       - name: Upload dist to GitHub Release
         uses: actions/upload-release-asset@v1
         env:
