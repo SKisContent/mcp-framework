@@ -4,28 +4,50 @@ on:
   push:
     branches:
       - main
-    tags:
-      - 'v*.*.*' # Trigger on version tags like v1.2.3
 
 jobs:
-  release-please:
-    runs-on: ubuntu-latest
-    outputs:
-      release_created: ${{ steps.release.outputs.release_created }}
-      tag_name: ${{ steps.release.outputs.tag_name }}
-    steps:
-      - name: Release Please
-        id: release
-        uses: googleapis/release-please-action@v4
-        with:
-          release-type: node
-
-  npm-pack-and-upload:
-    needs: release-please
+  build-and-release:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Get previous package.json version
+        id: prev_version
+        run: |
+          git fetch --depth=2 origin main
+          git checkout HEAD~1 package.json || echo "No previous package.json"
+          echo "PREV_VERSION=$(node -p \"require('./package.json').version\")" >> $GITHUB_ENV
+          git checkout main package.json
+
+      - name: Get current package.json version
+        id: curr_version
+        run: |
+          echo "CURR_VERSION=$(node -p \"require('./package.json').version\")" >> $GITHUB_ENV
+
+      - name: Bump patch version if unchanged
+        id: bump_version
+        run: |
+          if [ "$PREV_VERSION" = "$CURR_VERSION" ]; then
+            NEW_VERSION=$(npm version patch --no-git-tag-version)
+            echo "Version bumped to $NEW_VERSION"
+            echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          else
+            echo "new_version=$CURR_VERSION" >> $GITHUB_OUTPUT
+          fi
+        env:
+          PREV_VERSION: ${{ env.PREV_VERSION }}
+          CURR_VERSION: ${{ env.CURR_VERSION }}
+
+      - name: Commit version bump if needed
+        run: |
+          if [ "${{ steps.prev_version.outputs.PREV_VERSION }}" = "${{ steps.curr_version.outputs.CURR_VERSION }}" ]; then
+            git config --global user.name "github-actions[bot]"
+            git config --global user.email "github-actions[bot]@users.noreply.github.com"
+            git add package.json package-lock.json || true
+            git commit -m "chore: bump version to ${{ steps.bump_version.outputs.new_version }}"
+            git push origin main
+          fi
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -41,10 +63,10 @@ jobs:
       - name: Pack module
         run: npm pack
 
-      - name: Upload .tgz to Release
+      - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ needs.release-please.outputs.tag_name }}
+          tag_name: v${{ steps.bump_version.outputs.new_version }}
           files: |
             *.tgz
         env:
