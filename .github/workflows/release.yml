@@ -4,11 +4,6 @@ on:
   push:
     branches:
       - main
-  workflow_dispatch:
-
-permissions:
-  contents: write
-  pull-requests: write
 
 jobs:
   release-please:
@@ -16,44 +11,40 @@ jobs:
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
-      upload_url: ${{ steps.release.outputs.upload_url }}
     steps:
-      - id: release
-        uses: googleapis/release-please-action@v4
+      - name: Release Please
+        id: release
+        uses: google-github-actions/release-please-action@v4
         with:
-          config-file: '.release-please-config.json'
+          release-type: node
 
-  upload-dist:
+  npm-pack-and-upload:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Build Distribution
-        run: |
-          npm ci
-          npm run build
-      - name: Zip Node package (excluding src)
-        run: |
-          zip -r dist.zip . -x "src/*" "test/*" ".git*" ".github/*" "node_modules/*"
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      # Get latest release upload_url
-      - name: Get latest release upload_url
-        id: get_release
-        uses: actions/github-script@v7
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
-          script: |
-            const { data: latestRelease } = await github.rest.repos.getLatestRelease({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-            });
-            core.setOutput('upload_url', latestRelease.upload_url);
+          node-version: '20'
 
-      # Upload dist/ as a release asset
-      - name: Upload dist to GitHub Release
-        uses: actions/upload-release-asset@v1
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build package
+        run: npm run build # Remove if not needed
+
+      - name: Pack module
+        run: npm pack
+
+      - name: Upload .tgz to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.release-please.outputs.tag_name }}
+          files: |
+            *.tgz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.get_release.outputs.upload_url }}
-          asset_path: dist.zip
-          asset_name: dist.zip
-          asset_content_type: application/zip
