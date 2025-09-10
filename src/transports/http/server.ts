@@ -4,7 +4,7 @@ import { AbstractTransport } from '../base.js';
 import { JSONRPCMessage, isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { DEFAULT_HTTP_STREAM_CONFIG, DEFAULT_CORS_CONFIG, HttpStreamTransportConfig, CORSConfig } from './types.js';
-import { getRequestHeader, setResponseHeaders } from "../../utils/headers.js";
+import { setResponseHeaders } from "../../utils/headers.js";
 import { logger } from '../../core/Logger.js';
 
 export class HttpStreamTransport extends AbstractTransport {
