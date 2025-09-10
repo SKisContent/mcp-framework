@@ -17,7 +17,8 @@ jobs:
         run: |
           git fetch --depth=2 origin main
           git checkout HEAD~1 package.json || echo "No previous package.json"
-          echo "PREV_VERSION=$(node -p \"require('./package.json').version\")" >> $GITHUB_ENV
+          PREV_VERSION=$(node -p "require('./package.json').version")
+          echo "prev_version=$PREV_VERSION" >> $GITHUB_OUTPUT
           git checkout main package.json
 
       - name: Get current package.json version
@@ -28,16 +29,13 @@ jobs:
       - name: Bump patch version if unchanged
         id: bump_version
         run: |
-          if [ "$PREV_VERSION" = "$CURR_VERSION" ]; then
+          if [ "${{ steps.prev_version.outputs.prev_version }}" = "${{ steps.curr_version.outputs.curr_version }}" ]; then
             NEW_VERSION=$(npm version patch --no-git-tag-version)
             echo "Version bumped to $NEW_VERSION"
             echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
           else
-            echo "new_version=$CURR_VERSION" >> $GITHUB_OUTPUT
+            echo "new_version=${{ steps.curr_version.outputs.curr_version }}" >> $GITHUB_OUTPUT
           fi
-        env:
-          PREV_VERSION: ${{ env.PREV_VERSION }}
-          CURR_VERSION: ${{ env.CURR_VERSION }}
 
       - name: Commit version bump if needed
         run: |
